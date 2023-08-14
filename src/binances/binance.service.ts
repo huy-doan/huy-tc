@@ -213,6 +213,7 @@ export class BinanceService {
                             return false;
                         });
 
+                        // kiem tra D co thuoc 127.2-200% BC khong
                         if (listD.length > 0) {
                             console.log("Data Found");
                             response.push({

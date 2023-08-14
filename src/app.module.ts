@@ -7,7 +7,7 @@ import { BinanceModule } from './binances/binance.module';
 
 @Module({
   imports: [
-    databaseConfig,
+    // databaseConfig,
     UserModule,
     BinanceModule
   ],
