@@ -57,10 +57,12 @@ export class BinanceService {
     {
         let res: AnalyzeResult[] = [];
         try {
-            const symbols = await this.getSymbols();
-            for (const symbolItem of symbols) {
-                const { symbol } = symbolItem;
+            // const symbols = await this.getSymbols();
+            // for (const symbolItem of symbols) {
+                // const { symbol } = symbolItem;
+                const symbol = "HBARUSDT";
                 const chartResult: ChartResult[] = await this.calculatorCypherPattern(symbol, interval, limit);
+                console.log(chartResult);
                 if (chartResult.length > 0) {
                     const analyzeResult: AnalyzeResult = {
                         symbol,
@@ -70,7 +72,7 @@ export class BinanceService {
                     }
                     res.push(analyzeResult);
                 }
-            }
+            // }
             
         } catch (error) {
             throw error;
@@ -170,6 +172,7 @@ export class BinanceService {
                 if (listB.length == 0) {
                     continue;
                 }
+                // console.log(33, listB);
 
                 // const minPriceB = Math.max(...listB.map(b => b.price));
                 // const minIndexB = Math.min(...listB.map(b => b.index));
@@ -192,27 +195,14 @@ export class BinanceService {
                         if (pointC.openTime < pointB.openTime) continue;
 
                         const unValidPeak = futuresCandles.find(item => 
-                            item.openTime > pointB.openTime && item.openTime < pointC.openTime && (item.highNum > pointB.highNum || item.lowNum < pointC.lowNum)
+                            item.openTime > pointB.openTime && item.openTime < pointC.openTime && (item.lowNum < pointB.lowNum || item.highNum > pointC.highNum)
                         );
 
                         if (unValidPeak) {
                             continue;
                         }
 
-                        const listD = swingLows.filter(function (lowD) {
-                            const price = lowD.lowNum;
-                            const condition = price >= dMin && price <= dMax && lowD.openTime > pointC.openTime;
-                            if (condition) {
-                                let unValidPeak = futuresCandles.find(item => 
-                                    pointC.openTime < item.openTime && item.openTime < lowD.openTime && (item.lowNum < lowD.lowNum || item.highNum > pointC.highNum)
-                                );
-                                return !unValidPeak;
-                            }
-                            return false;
-                        });
-
-                        if (listD.length > 0) {
-                            console.log("Data Found");
+                        console.log("Data Found");
                             response.push({
                                 xPrice: lowest.low,
                                 xTime: lowest.openTimeString,
@@ -220,9 +210,33 @@ export class BinanceService {
                                 aTime: highest.openTimeString,
                                 bPrice: pointB,
                                 cPrice: pointC,
-                                dPrices: listD,
+                                // dPrices: listD,
                             });
-                        }
+
+                        // const listD = swingLows.filter(function (lowD) {
+                        //     const price = lowD.lowNum;
+                        //     const condition = price >= dMin && price <= dMax && lowD.openTime > pointC.openTime;
+                        //     if (condition) {
+                        //         let unValidPeak = futuresCandles.find(item => 
+                        //             pointC.openTime < item.openTime && item.openTime < lowD.openTime && (item.lowNum < lowD.lowNum || item.highNum > pointC.highNum)
+                        //         );
+                        //         return !unValidPeak;
+                        //     }
+                        //     return false;
+                        // });
+
+                        // if (listD.length > 0) {
+                        //     console.log("Data Found");
+                        //     response.push({
+                        //         xPrice: lowest.low,
+                        //         xTime: lowest.openTimeString,
+                        //         aPrice: highest.high,
+                        //         aTime: highest.openTimeString,
+                        //         bPrice: pointB,
+                        //         cPrice: pointC,
+                        //         dPrices: listD,
+                        //     });
+                        // }
                     }
                 }
 

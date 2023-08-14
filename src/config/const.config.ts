@@ -3,7 +3,7 @@ export const CONSTANT = {
         CYPHER: {
             B_MAX: 0.382,
             B_MIN: 0.618,
-            C_MIN: 1.272,
+            C_MIN: 1.130,
             C_MAX: 1.414,
             D_MIN: 0.786,
         }
