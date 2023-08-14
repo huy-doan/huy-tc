@@ -57,10 +57,9 @@ export class BinanceService {
     {
         let res: AnalyzeResult[] = [];
         try {
-            // const symbols = await this.getSymbols();
-            // for (const symbolItem of symbols) {
-                // const { symbol } = symbolItem;
-                const symbol = "HBARUSDT";
+            const symbols = await this.getSymbols();
+            for (const symbolItem of symbols) {
+                const { symbol } = symbolItem;
                 const chartResult: ChartResult[] = await this.calculatorCypherPattern(symbol, interval, limit);
                 console.log(chartResult);
                 if (chartResult.length > 0) {
@@ -72,7 +71,7 @@ export class BinanceService {
                     }
                     res.push(analyzeResult);
                 }
-            // }
+            }
             
         } catch (error) {
             throw error;
@@ -202,7 +201,20 @@ export class BinanceService {
                             continue;
                         }
 
-                        console.log("Data Found");
+                        const listD = swingLows.filter(function (lowD) {
+                            const price = lowD.lowNum;
+                            const condition = price >= dMin && price <= dMax && lowD.openTime > pointC.openTime;
+                            if (condition) {
+                                let unValidPeak = futuresCandles.find(item => 
+                                    pointC.openTime < item.openTime && item.openTime < lowD.openTime && (item.lowNum < lowD.lowNum || item.highNum > pointC.highNum)
+                                );
+                                return !unValidPeak;
+                            }
+                            return false;
+                        });
+
+                        if (listD.length > 0) {
+                            console.log("Data Found");
                             response.push({
                                 xPrice: lowest.low,
                                 xTime: lowest.openTimeString,
@@ -210,33 +222,9 @@ export class BinanceService {
                                 aTime: highest.openTimeString,
                                 bPrice: pointB,
                                 cPrice: pointC,
-                                // dPrices: listD,
+                                dPrices: listD,
                             });
-
-                        // const listD = swingLows.filter(function (lowD) {
-                        //     const price = lowD.lowNum;
-                        //     const condition = price >= dMin && price <= dMax && lowD.openTime > pointC.openTime;
-                        //     if (condition) {
-                        //         let unValidPeak = futuresCandles.find(item => 
-                        //             pointC.openTime < item.openTime && item.openTime < lowD.openTime && (item.lowNum < lowD.lowNum || item.highNum > pointC.highNum)
-                        //         );
-                        //         return !unValidPeak;
-                        //     }
-                        //     return false;
-                        // });
-
-                        // if (listD.length > 0) {
-                        //     console.log("Data Found");
-                        //     response.push({
-                        //         xPrice: lowest.low,
-                        //         xTime: lowest.openTimeString,
-                        //         aPrice: highest.high,
-                        //         aTime: highest.openTimeString,
-                        //         bPrice: pointB,
-                        //         cPrice: pointC,
-                        //         dPrices: listD,
-                        //     });
-                        // }
+                        }
                     }
                 }
 
