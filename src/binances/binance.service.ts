@@ -26,7 +26,8 @@ export class BinanceService {
                 const coin = this.binance.futuresCandles({
                     symbol: 'BTCUSDT',
                     interval: time as any,
-                    limit: 10
+                    limit: 10,
+                    endTime: 1597138010000
                 })
                 funces.push(coin);
                 i++;
@@ -56,10 +57,9 @@ export class BinanceService {
     {
         let res: AnalyzeResult[] = [];
         try {
-            // const symbols = await this.getSymbols();
-            const symbol = "BTCUSDT";
-            // for (const symbolItem of symbols) {
-            //     const { symbol } = symbolItem;
+            const symbols = await this.getSymbols();
+            for (const symbolItem of symbols) {
+                const { symbol } = symbolItem;
                 const chartResult: ChartResult[] = await this.calculatorCypherPattern(symbol, interval, limit);
                 if (chartResult.length > 0) {
                     const analyzeResult: AnalyzeResult = {
@@ -70,7 +70,7 @@ export class BinanceService {
                     }
                     res.push(analyzeResult);
                 }
-            // }
+            }
             
         } catch (error) {
             throw error;
@@ -80,19 +80,34 @@ export class BinanceService {
         return res;
     }
 
-    async getFuturesCandles(candlesOptions: CandlesOptions): Promise<CandleChartResult[]>
+    async getFuturesCandles(candlesOptions: CandlesOptions): Promise<Pointer[]>
     {
         try {
-            return this.binance.futuresCandles(candlesOptions);
+            const futuresCandles = await this.binance.futuresCandles(candlesOptions);
+
+            let pointers: Pointer[] = [];
+            for (const [index, candle] of Object.entries(futuresCandles)) {
+                pointers.push({
+                    index: Number(index), 
+                    openNum: parseFloat(candle.open),
+                    highNum: parseFloat(candle.high),
+                    lowNum: parseFloat(candle.low),
+                    closeNum: parseFloat(candle.close),
+                    openTimeString: timestampToString(candle.openTime),
+                    ...candle
+                })
+            }
+
+            return pointers;
         } catch (error) {
-            throw new Error('Failed to fetch Bitcoin price from Binance API');
+            throw error;
         }
     }
 
     async calculatorCypherPattern(symbol: string, interval: CandleChartInterval_LT = '1h', limit: number = 500): Promise<ChartResult[]>
     {
         const response: ChartResult[] = [];
-        const futuresCandles: CandleChartResult[] = await this.getFuturesCandles({
+        const futuresCandles: Pointer[] = await this.getFuturesCandles({
             symbol: symbol,
             interval,
             limit,
@@ -100,20 +115,24 @@ export class BinanceService {
         const { swingLows, swingHighs } = this.findSwingLowsAndHighs(futuresCandles);
 
         for (const [lowestIndex, lowest] of Object.entries(swingLows)) {
-            const lowestPrice = parseFloat(lowest.price);
+            if (Number(lowestIndex) > 0 && swingLows[Number(lowestIndex) - 1].lowNum < swingLows[Number(lowestIndex)].lowNum) {
+                continue;
+            }
+            const lowestPrice = lowest.lowNum;
             const newHighs = swingHighs.filter(function (high) {
-                const highPrice = parseFloat(high.price);
+                const highPrice = high.highNum;
                 return highPrice > lowestPrice && high.openTime > lowest.openTime;
             });
             if (newHighs.length == 0) continue;
             for (const [highestIndex, highest] of Object.entries(newHighs)) {
-                const highestPrice = parseFloat(highest.price);
+                const highestPrice = highest.highNum;
 
-                if (lowest.high >= highest.low || (highest.index - lowest.index) < 10) continue;
+                if (lowest.high > highest.high || (highest.index -lowest.index) < 10) continue;
 
-                // check co diem nao nam giua XA > A khong
-                const isExistAHighest = newHighs.slice(0, Number(highestIndex) +1 ).find(
-                    item => item.index > lowest.index && item.index < highest.index && item.high > highest.high
+                // check co diem nao nam giua XA lon hon A va be hon X khong
+
+                const isExistAHighest = futuresCandles.find(
+                    item => item.openTime > lowest.openTime && item.openTime < highest.openTime && (item.high > highest.high || item.low < lowest.low)
                 );
                 if (isExistAHighest) {
                     continue;
@@ -133,22 +152,17 @@ export class BinanceService {
 
                 //kiem tra trong mang co ton tai diem B hop le khong 
                 let listB = swingLows.filter(function (lowB) {
-                    const price = parseFloat(lowB.price);
+                    const price = lowB.lowNum;
                     // filter price nam giua bMin & bMax 
                     const condition = price >= bMin && price <= bMax  && lowB.openTime >= highest.openTime && lowB.high <= highest.high;// && lowB.low > lowest.low
                     // tiep tuc filter B xem co diem nao khong thoa nam giua XA va B hay khong
                     if (condition) {
-                        // A -> B < B
-                        const foundLowest = swingLows.find(item => 
-                            item.index > highest.index && item.index < lowB.index && (item.price < lowB.price || item.high > highest.price)
+                        // check A -> B: 
+                        const foundLowest = futuresCandles.find(item => 
+                            item.index > highest.index && item.index < lowB.index && (item.lowNum < lowB.lowNum || item.highNum > highest.highNum)
                         );
 
-                        // A -> B : > A & B <
-                        const foundHighest = newHighs.find(item => 
-                            item.index > highest.index && item.index < lowB.index && (item.price > highest.price || item.low < lowB.price)
-                        );
-
-                        return !foundLowest && !foundHighest;
+                        return !foundLowest;
                     }
                     return false;
                 });
@@ -157,128 +171,94 @@ export class BinanceService {
                     continue;
                 }
 
-                const minPriceB = Math.max(...listB.map(b => parseFloat(b.price)));
-                const minIndexB = Math.min(...listB.map(b => b.index));
+                // const minPriceB = Math.max(...listB.map(b => b.price));
+                // const minIndexB = Math.min(...listB.map(b => b.index));
 
                 // tim C
                 const cMin = downFibonacciRetracement(lowestPrice, highestPrice, CONSTANT.LEVEL.CYPHER.C_MIN);
                 const cMax = downFibonacciRetracement(lowestPrice, highestPrice, CONSTANT.LEVEL.CYPHER.C_MAX);
 
-                //kiem tra trong mang co ton tai diem C hop le khong 
-                const listC = newHighs.filter(function (highC) {
-                    const price = parseFloat(highC.price);
-                    const condition = price >= cMin && price <= cMax && highC.index > minIndexB;
-
-                    if (condition) {
-                        // // Điều kiện 1: tất cả điểm có index nằm giữa x và b có price không lớn hơn price của b hoặc bé hơn price của x
-                        // // const condition1 = (lowB.index > x.index && point.index < b.index) && (point.price <= b.price && point.price >= x.price);
-                        // let foundHighest = newHighs.find(item => 
-                        //     minIndexB < item.index && item.index < highC.index && (item.price > highC.price || parseFloat(item.price) < bMin)
-                        // );
-
-                        // B -> C : > C
-                        const foundHighest = newHighs.find(item => 
-                            item.index > minIndexB && item.index < highC.index && (item.price > highC.price || parseFloat(item.low) < minPriceB)
-                        );
-
-                        // B -> C : > C
-                        const foundLowest = swingLows.find(item => 
-                            item.index > minIndexB && item.index < highC.index && (parseFloat(item.price) < minPriceB || parseFloat(item.high) > parseFloat(highC.price))
-                        );
-
-                        // return !foundHighest;
-                    }
-                    return false;
-                });
-
-                if (listC.length == 0) {
-                    continue;
-                }
-                const maxIndexC = Math.max(...listC.map(c => c.index));
-
-                let finalB: Pointer[] = [];
-                for (const itemB of listB) {
-                    const findExistLowest = swingLows.find(item => item.index > itemB.index && item.index < maxIndexC && (item.low < itemB.low || item.high > highest.price));
-                    if (!findExistLowest) {
-                        finalB.push(itemB);
-                    }
-                }
-
-                if (finalB.length == 0) {
-                    continue;
-                }
-
                 // tim D
                 const dMin = upFibonacciRetracement(lowestPrice, cMin, CONSTANT.LEVEL.CYPHER.D_MIN);
                 const dMax = upFibonacciRetracement(lowestPrice, cMax, CONSTANT.LEVEL.CYPHER.D_MIN);
 
-                const minIndexC = Math.min(...listC.map(c => c.index));
-
-                // check them CD ton tai dinh cao hon C, thap hon D. AB co dinh cao hon A. xa diinh cao hon A, BC co diem lon hon C
-                const listD = swingLows.filter(function (lowD) {
-                    const price = parseFloat(lowD.price);
-                    const condition = price >= dMin && price <= dMax && lowD.index > minIndexC;
-                    if (condition) {
-                        let foundHighest = swingLows.find(item => 
-                            minIndexC < item.index && item.index < lowD.index && (item.price < lowD.price || parseFloat(item.price) > cMax)
-                        );
-                        return !foundHighest;
-                    }
-                    return false;
+                //kiem tra trong mang co ton tai diem C hop le khong 
+                const listC = newHighs.filter(function (highC) {
+                    return highC.highNum >= cMin && highC.highNum <= cMax;
                 });
 
-                if (listD .length > 0) {
-                    console.log("Data found");
-                    response.push({
-                        xPrice: lowest.price,
-                        xTime: lowest.openTimeString,
-                        aPrice: highest.price,
-                        aTime: highest.openTimeString,
-                        bPrices: finalB,
-                        cPrices: listC,
-                        dPrices: listD,
-                    });
+                for (const pointB of listB) {
+                    for (const pointC of listC) {
+                        if (pointC.openTime < pointB.openTime) continue;
+
+                        const unValidPeak = futuresCandles.find(item => 
+                            item.openTime > pointB.openTime && item.openTime < pointC.openTime && (item.highNum > pointB.highNum || item.lowNum < pointC.lowNum)
+                        );
+
+                        if (unValidPeak) {
+                            continue;
+                        }
+
+                        const listD = swingLows.filter(function (lowD) {
+                            const price = lowD.lowNum;
+                            const condition = price >= dMin && price <= dMax && lowD.openTime > pointC.openTime;
+                            if (condition) {
+                                let unValidPeak = futuresCandles.find(item => 
+                                    pointC.openTime < item.openTime && item.openTime < lowD.openTime && (item.lowNum < lowD.lowNum || item.highNum > pointC.highNum)
+                                );
+                                return !unValidPeak;
+                            }
+                            return false;
+                        });
+
+                        if (listD.length > 0) {
+                            console.log("Data Found");
+                            response.push({
+                                xPrice: lowest.low,
+                                xTime: lowest.openTimeString,
+                                aPrice: highest.high,
+                                aTime: highest.openTimeString,
+                                bPrice: pointB,
+                                cPrice: pointC,
+                                dPrices: listD,
+                            });
+                        }
+                    }
                 }
+
+
             }
         }
         return response;
     }
 
     // Hàm xác định điểm Swing Low
-    findSwingLowsAndHighs(data: CandleChartResult[]): SwingResult {
+    findSwingLowsAndHighs(data: Pointer[]): SwingResult {
         const swingLows: Pointer[] = [];
         const swingHighs: Pointer[] = [];
-        for (let i = 1; i < data.length - 1; i++) {
-            const openTimeString = timestampToString(data[i].openTime);
-
-            const prevLowPrice = parseFloat(data[i - 1].low);
-            const currLowPrice = parseFloat(data[i].low);
-            const nextLowPrice = parseFloat(data[i + 1].low);
+        for (let i = 1; i < data.length; i++) {
+            const currentItem = data[i];
+            const prevItem = data[i - 1];
+            let nextItem: Pointer;
+            if (i == (data.length - 1)) {
+                nextItem = data[i];
+            } else {
+                nextItem = data[i + 1];
+            }
+            const prevLowPrice = prevItem.lowNum;
+            const currLowPrice = currentItem.lowNum;
+            const nextLowPrice = nextItem.lowNum;
             
-            if (currLowPrice < prevLowPrice && currLowPrice < nextLowPrice) {
-
-                const item: Pointer = { 
-                    index: i, 
-                    price: data[i].low,
-                    openTimeString,
-                    ...data[i]
-                };
-                swingLows.push(item);
+            if (currLowPrice < prevLowPrice && currLowPrice <= nextLowPrice) {
+                swingLows.push(currentItem);
             }
 
-            const prevHighPrice = parseFloat(data[i - 1].high);
-            const currHighPrice = parseFloat(data[i].high);
-            const nextHighPrice = parseFloat(data[i + 1].high);
-            
-            if (currHighPrice > prevHighPrice && currHighPrice > nextHighPrice) {
+            const prevHighPrice = prevItem.highNum;
+            const currHighPrice = currentItem.highNum;
+            const nextHighPrice = nextItem.highNum;
 
-                const item: Pointer = { 
-                    index: i, 
-                    price: data[i].high,
-                    openTimeString,
-                    ...data[i]
-                };
-                swingHighs.push(item);
+            if (currHighPrice > prevHighPrice && currHighPrice >= nextHighPrice) {
+                swingHighs.push(currentItem);
             }
         }
         return {

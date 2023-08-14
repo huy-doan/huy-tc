@@ -7,7 +7,10 @@ export interface SwingResult {
 
 export interface Pointer extends CandleChartResult {
     index: number;
-    price: string;
+    openNum: number;
+    highNum: number;
+    lowNum: number;
+    closeNum: number;
     openTimeString: string;
 }
 
@@ -21,8 +24,8 @@ export interface ChartResult {
     xTime: string;
     aPrice: string;
     aTime: string;
-    bPrices: Pointer[];
-    cPrices: Pointer[];
+    bPrice: Pointer;
+    cPrice: Pointer;
     dPrices?: Pointer[];
 }
 export interface AnalyzeResult {
