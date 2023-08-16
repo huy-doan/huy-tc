@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import binanceApiNode, { Binance, Candle, CandleChartInterval_LT, CandleChartResult, CandlesOptions } from 'binance-api-node';
 import { CONSTANT } from '~config/const.config';
-import { downFibonacciRetracement, upFibonacciRetracement } from '~helper/formula.helper';
-import { timestampToString } from '~helper/time.helper';
-import { AnalyzeResult, ChartResult, Pointer, SwingResult, Symbol } from '~interface/common.interface';
+import Constants from '~constants/Constants';
+import { downFibonacciRetracement, upFibonacciRetracement } from '~helpers/formula.helper';
+import { timestampToString } from '~helpers/time.helper';
+import { AnalyzeResult, ChartResult, CustomCandle, SwingResult, Symbol } from '~interfaces/common.interface';
+import Candlestick from '~libs/candlestick/Candlestick';
 
 @Injectable()
 export class BinanceService {
@@ -81,12 +83,12 @@ export class BinanceService {
         return res;
     }
 
-    async getFuturesCandles(candlesOptions: CandlesOptions): Promise<Pointer[]>
+    async getFuturesCandles(candlesOptions: CandlesOptions): Promise<CustomCandle[]>
     {
         try {
             const futuresCandles = await this.binance.futuresCandles(candlesOptions);
 
-            let pointers: Pointer[] = [];
+            let pointers: CustomCandle[] = [];
             for (const [index, candle] of Object.entries(futuresCandles)) {
                 pointers.push({
                     index: Number(index), 
@@ -107,8 +109,9 @@ export class BinanceService {
 
     async calculatorCypherPattern(symbol: string, interval: CandleChartInterval_LT = '1h', limit: number = 500): Promise<ChartResult[]>
     {
+        const candleStick = new Candlestick();
         const response: ChartResult[] = [];
-        const futuresCandles: Pointer[] = await this.getFuturesCandles({
+        const futuresCandles: CustomCandle[] = await this.getFuturesCandles({
             symbol: symbol,
             interval,
             limit,
@@ -116,6 +119,10 @@ export class BinanceService {
         const { swingLows, swingHighs } = this.findSwingLowsAndHighs(futuresCandles);
 
         for (const [lowestIndex, lowest] of Object.entries(swingLows)) {
+            if (candleStick.whoAmI(lowest) == Constants.CANDLE_TYPE.DRAGONFLY_DOJI) {
+                console.log(22, symbol, lowest);
+            }
+
             if (Number(lowestIndex) > 0 && swingLows[Number(lowestIndex) - 1].lowNum < swingLows[Number(lowestIndex)].lowNum) {
                 continue;
             }
@@ -236,13 +243,13 @@ export class BinanceService {
     }
 
     // Hàm xác định điểm Swing Low
-    findSwingLowsAndHighs(data: Pointer[]): SwingResult {
-        const swingLows: Pointer[] = [];
-        const swingHighs: Pointer[] = [];
+    findSwingLowsAndHighs(data: CustomCandle[]): SwingResult {
+        const swingLows: CustomCandle[] = [];
+        const swingHighs: CustomCandle[] = [];
         for (let i = 1; i < data.length; i++) {
             const currentItem = data[i];
             const prevItem = data[i - 1];
-            let nextItem: Pointer;
+            let nextItem: CustomCandle;
             if (i == (data.length - 1)) {
                 nextItem = data[i];
             } else {

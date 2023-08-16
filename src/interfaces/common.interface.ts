@@ -1,11 +1,11 @@
 import { CandleChartInterval_LT, CandleChartResult } from "binance-api-node";
 
 export interface SwingResult {
-    swingLows: Pointer[];
-    swingHighs: Pointer[];
+    swingLows: CustomCandle[];
+    swingHighs: CustomCandle[];
 }
 
-export interface Pointer extends CandleChartResult {
+export interface CustomCandle extends CandleChartResult {
     index: number;
     openNum: number;
     highNum: number;
@@ -24,9 +24,9 @@ export interface ChartResult {
     xTime: string;
     aPrice: string;
     aTime: string;
-    bPrice: Pointer;
-    cPrice: Pointer;
-    dPrices?: Pointer[];
+    bPrice: CustomCandle;
+    cPrice: CustomCandle;
+    dPrices?: CustomCandle[];
 }
 export interface AnalyzeResult {
     symbol: string;

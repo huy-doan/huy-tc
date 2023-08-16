@@ -1,6 +1,6 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { BinanceService } from './binance.service';
-import { AnalyzeResult } from '~interface/common.interface';
+import { AnalyzeResult } from '~interfaces/common.interface';
 import { CandleChartInterval_LT } from 'binance-api-node';
 
 @Controller('harmonics')
