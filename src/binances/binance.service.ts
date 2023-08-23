@@ -62,8 +62,14 @@ export class BinanceService {
             const symbols = await this.getSymbols();
             for (const symbolItem of symbols) {
                 const { symbol } = symbolItem;
-                const chartResult: ChartResult[] = await this.calculatorCypherPattern(symbol, interval, limit);
-                console.log(chartResult);
+                const futuresCandles: CustomCandle[] = await this.getFuturesCandles({
+                    symbol: symbol,
+                    interval,
+                    limit,
+                })
+                console.log(411, symbol);
+                const chartResult: ChartResult[] = await this.calculatorCypherPattern(futuresCandles);
+                console.log(chartResult.length );
                 if (chartResult.length > 0) {
                     const analyzeResult: AnalyzeResult = {
                         symbol,
@@ -107,21 +113,27 @@ export class BinanceService {
         }
     }
 
-    async calculatorCypherPattern(symbol: string, interval: CandleChartInterval_LT = '1h', limit: number = 500): Promise<ChartResult[]>
+    async calculatorCypherPattern(futuresCandles: CustomCandle[]): Promise<ChartResult[]>
     {
-        const candleStick = new Candlestick();
-        const response: ChartResult[] = [];
-        const futuresCandles: CustomCandle[] = await this.getFuturesCandles({
-            symbol: symbol,
-            interval,
-            limit,
-        })
+        // const candleStick = new Candlestick();
+        let response: ChartResult[] = [];
         const { swingLows, swingHighs } = this.findSwingLowsAndHighs(futuresCandles);
 
+        // /** Bullish cypher */
+        // response = this.bullishCypher(response, futuresCandles, swingLows, swingHighs);
+
+        /** Bearish cypher */
+        response = this.bearishCypher(response, futuresCandles, swingLows, swingHighs);
+
+        return response;
+    }
+
+    bullishCypher(response: ChartResult[], futuresCandles: CustomCandle[], swingLows: CustomCandle[], swingHighs: CustomCandle[])
+    {
         for (const [lowestIndex, lowest] of Object.entries(swingLows)) {
-            if (candleStick.whoAmI(lowest) == Constants.CANDLE_TYPE.DRAGONFLY_DOJI) {
-                console.log(22, symbol, lowest);
-            }
+            // if (candleStick.whoAmI(lowest) == Constants.CANDLE_TYPE.DRAGONFLY_DOJI) {
+            //     console.log(22, symbol, lowest);
+            // }
 
             if (Number(lowestIndex) > 0 && swingLows[Number(lowestIndex) - 1].lowNum < swingLows[Number(lowestIndex)].lowNum) {
                 continue;
@@ -135,12 +147,12 @@ export class BinanceService {
             for (const [highestIndex, highest] of Object.entries(newHighs)) {
                 const highestPrice = highest.highNum;
 
-                if (lowest.high > highest.high || (highest.index -lowest.index) < 10) continue;
+                if (lowest.highNum > highest.highNum || (highest.index -lowest.index) < 10) continue;
 
                 // check co diem nao nam giua XA lon hon A va be hon X khong
 
                 const isExistAHighest = futuresCandles.find(
-                    item => item.openTime > lowest.openTime && item.openTime < highest.openTime && (item.high > highest.high || item.low < lowest.low)
+                    item => item.openTime > lowest.openTime && item.openTime < highest.openTime && (item.highNum > highest.highNum || item.lowNum < lowest.lowNum)
                 );
                 if (isExistAHighest) {
                     continue;
@@ -148,7 +160,7 @@ export class BinanceService {
 
                 // check co diem nao nam giua XA < X khong
                 const isExistXLowest = swingLows.find(
-                    item => item.index > lowest.index && item.index < highest.index && item.low < lowest.low
+                    item => item.index > lowest.index && item.index < highest.index && item.lowNum < lowest.lowNum
                 );
                 if (isExistXLowest) {
                     continue;
@@ -162,7 +174,7 @@ export class BinanceService {
                 let listB = swingLows.filter(function (lowB) {
                     const price = lowB.lowNum;
                     // filter price nam giua bMin & bMax 
-                    const condition = price >= bMin && price <= bMax  && lowB.openTime >= highest.openTime && lowB.high <= highest.high;// && lowB.low > lowest.low
+                    const condition = price >= bMin && price <= bMax  && lowB.openTime >= highest.openTime && lowB.highNum <= highest.highNum;// && lowB.lowNum > lowest.lowNum
                     // tiep tuc filter B xem co diem nao khong thoa nam giua XA va B hay khong
                     if (condition) {
                         // check A -> B: 
@@ -235,10 +247,126 @@ export class BinanceService {
                         }
                     }
                 }
-
-
             }
         }
+
+        return response;
+    }
+
+    bearishCypher(response: ChartResult[], futuresCandles: CustomCandle[], swingLows: CustomCandle[], swingHighs: CustomCandle[]) {
+        for (const [highestIndex, highest] of Object.entries(swingHighs)) {
+            if (Number(highestIndex) > 0 && swingHighs[Number(highestIndex) - 1].highNum > swingHighs[Number(highestIndex)].highNum) {
+                continue;
+            }
+            const highestPrice = highest.highNum;
+            const newLows = swingLows.filter(function (low) {
+                const lowPrice = low.lowNum;
+                return lowPrice < highestPrice && low.openTime > highest.openTime;
+            });
+
+            if (newLows.length == 0) continue;
+            for (const [lowestIndex, lowest] of Object.entries(newLows)) {
+                const lowestPrice = lowest.lowNum;
+    
+                if (highest.lowNum < lowest.lowNum || (lowest.index - highest.index) < 10) continue;
+    
+                // Check if there is any point between XA that is higher than X and lower than A
+                const isExistAHighest = futuresCandles.find(
+                    item => item.openTime > highest.openTime && item.openTime < lowest.openTime && (item.highNum > highest.highNum || item.lowNum < lowest.lowNum)
+                );
+                if (isExistAHighest) {
+                    continue;
+                }
+    
+                // Check if there is any point between XA > X
+                const isExistXHighest = swingHighs.find(
+                    item => item.index > highest.index && item.index < lowest.index && item.highNum > highest.highNum
+                );
+
+                if (isExistXHighest) {
+                    continue;
+                }
+    
+                // Find B
+                const bMin = downFibonacciRetracement(highestPrice, lowestPrice, CONSTANT.LEVEL.CYPHER.B_MIN);
+                const bMax = downFibonacciRetracement(highestPrice, lowestPrice, CONSTANT.LEVEL.CYPHER.B_MAX);
+    
+                // Check if there exists a valid B point in the range
+                let listB = swingHighs.filter(function (highB) {
+                    const price = highB.highNum;
+                    // Filter price in the range [bMin, bMax]
+                    const condition = price >= bMin && price <= bMax && highB.openTime >= lowest.openTime && highB.lowNum >= lowest.lowNum;
+                    // Further filter B to see if there's any point between XA and B
+                    if (condition) {
+                        // Check A -> B:
+                        const foundHighest = futuresCandles.find(item =>
+                            item.index > lowest.index && item.index < highB.index && (item.highNum > highB.highNum || item.lowNum < lowest.lowNum)
+                        );
+    
+                        return !foundHighest;
+                    }
+                    return false;
+                });
+    
+                if (listB.length == 0) {
+                    continue;
+                }
+
+                // Find C
+                const cMax = upFibonacciRetracement(lowestPrice, highestPrice, CONSTANT.LEVEL.CYPHER.C_MIN);
+                const cMin = upFibonacciRetracement(lowestPrice, highestPrice, CONSTANT.LEVEL.CYPHER.C_MAX);
+    
+                // Find D
+                const dMin = downFibonacciRetracement(cMin, highestPrice, CONSTANT.LEVEL.CYPHER.D_MIN);
+                const dMax = downFibonacciRetracement(cMax, highestPrice, CONSTANT.LEVEL.CYPHER.D_MIN);
+    
+                // Check for valid C points
+                const listC = newLows.filter(function (lowC) {
+                    return lowC.lowNum >= cMin && lowC.lowNum <= cMax;
+                });
+                for (const pointB of listB) {
+                    for (const pointC of listC) {
+                        if (pointC.openTime < pointB.openTime) continue;
+    
+                        const unValidPeak = futuresCandles.find(item =>
+                            item.openTime > pointB.openTime && item.openTime < pointC.openTime && (item.highNum > pointB.highNum || item.lowNum < pointC.lowNum)
+                        );
+    
+                        if (unValidPeak) {
+                            continue;
+                        }
+    
+                        const listD = swingHighs.filter(function (highD) {
+                            const price = highD.highNum;
+
+                            const condition = price >= dMin && price <= dMax && highD.openTime > pointC.openTime;
+                            if (condition) {
+                                let unValidPeak = futuresCandles.find(item =>
+                                    pointC.openTime < item.openTime && item.openTime < highD.openTime && (item.highNum > highD.highNum || item.lowNum < pointC.lowNum)
+                                );
+                                return !unValidPeak;
+                            }
+                            return false;
+                        });
+    
+                        // Check if D is within 127.2-200% of BC
+                        if (listD.length > 0) {
+                            console.log("Bearish Cypher Data Found");
+                            response.push({
+                                xPrice: highest.high,
+                                xTime: highest.openTimeString,
+                                aPrice: lowest.low,
+                                aTime: lowest.openTimeString,
+                                bPrice: pointB,
+                                cPrice: pointC,
+                                dPrices: listD,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    
         return response;
     }
 
