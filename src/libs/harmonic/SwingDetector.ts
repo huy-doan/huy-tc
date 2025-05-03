@@ -9,7 +9,7 @@ export class SwingDetector {
      * @param lookback - Số nến nhìn lại để xác định swing (mặc định 3)
      * @returns Mảng các swing lows và swing highs
      */
-    static findSwingLowsAndHighs(data: CustomCandle[], lookback: number = 3): SwingResult {
+    static NewfindSwingLowsAndHighs(data: CustomCandle[], lookback: number = 3): SwingResult {
         if (data.length < lookback * 2 + 1) {
             return { swingLows: [], swingHighs: [] };
         }
@@ -74,6 +74,40 @@ export class SwingDetector {
         }
 
         return { swingLows, swingHighs };
+    }
+
+    static findSwingLowsAndHighs(data: CustomCandle[]): SwingResult {
+        const swingLows: CustomCandle[] = [];
+        const swingHighs: CustomCandle[] = [];
+        for (let i = 1; i < data.length; i++) {
+            const currentItem = data[i];
+            const prevItem = data[i - 1];
+            let nextItem: CustomCandle;
+            if (i == (data.length - 1)) {
+                nextItem = data[i];
+            } else {
+                nextItem = data[i + 1];
+            }
+            const prevLowPrice = prevItem.lowNum;
+            const currLowPrice = currentItem.lowNum;
+            const nextLowPrice = nextItem.lowNum;
+            
+            if (currLowPrice < prevLowPrice && currLowPrice <= nextLowPrice) {
+                swingLows.push(currentItem);
+            }
+
+            const prevHighPrice = prevItem.highNum;
+            const currHighPrice = currentItem.highNum;
+            const nextHighPrice = nextItem.highNum;
+
+            if (currHighPrice > prevHighPrice && currHighPrice >= nextHighPrice) {
+                swingHighs.push(currentItem);
+            }
+        }
+        return {
+            swingLows,
+            swingHighs
+        };
     }
 
     /**

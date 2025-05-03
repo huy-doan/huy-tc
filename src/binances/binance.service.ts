@@ -75,10 +75,12 @@ export class BinanceService {
         try {
             // Lấy danh sách các symbol
             const symbols = await this.getSymbols();
-            
+
+            let index = 0;
             // Duyệt qua từng symbol
             for (const symbolItem of symbols) {
                 const { symbol } = symbolItem;
+                if (symbol !== "EOSUSDT") continue; // Chỉ phân tích EOSUSDT
                 console.log(`Analyzing symbol: ${symbol}`);
                 // Lấy dữ liệu nến
                 const candles: CustomCandle[] = await this.getFuturesCandles({
@@ -86,17 +88,19 @@ export class BinanceService {
                     interval,
                     limit,
                 });
-                
+                   
                 if (candles.length === 0) {
                     continue;
                 }
                 
                 // Tìm các swing points
                 const swingResult = SwingDetector.findSwingLowsAndHighs(candles);
-                
+                // console.log(`Swing points for ${symbol}:`, swingResult);
                 // Lọc các swing points có ý nghĩa
                 const filteredSwings = SwingDetector.filterSignificantSwings(swingResult, candles);
                 let chartResults: ChartResult[] = [];
+                
+                console.log('filteredSwings', JSON.stringify(filteredSwings));
                 
                 // Phân tích từng loại mô hình
                 for (const patternType of patternTypes) {
@@ -105,7 +109,7 @@ export class BinanceService {
                         const patternDetector = HarmonicPatternFactory.createPattern(patternType);
                         
                         // Phát hiện mô hình
-                        const patterns = patternDetector.detectPattern(candles, swingResult);
+                        const patterns = patternDetector.detectPattern(candles, filteredSwings);
                         
                         // Thêm vào kết quả
                         chartResults = [...chartResults, ...patterns];
@@ -122,6 +126,10 @@ export class BinanceService {
                         limit,
                         results: chartResults
                     });
+                }
+                index++;
+                if (index > 10) {
+                    return results;
                 }
             }
         } catch (error) {
