@@ -5,8 +5,7 @@ export const HARMONIC_PATTERN = {
     GARTLEY: 'GARTLEY',
     BUTTERFLY: 'BUTTERFLY',
     CRAB: 'CRAB',
-    SHARK: 'SHARK',
-    THREE_DRIVES: 'THREE_DRIVES'
+    SHARK: 'SHARK'
   };
   
   export const PATTERN_TYPE = {
@@ -14,13 +13,15 @@ export const HARMONIC_PATTERN = {
     BEARISH: 'BEARISH'
   };
   
+  export const FIBONACCI_ERROR_MARGIN = 0.02; // 2% sai số
+  
   export const HARMONIC_LEVELS = {
     // Cypher pattern
     CYPHER: {
       B_MIN: 0.382,
       B_MAX: 0.618,
       C_MIN: 1.130,
-      C_MAX: 1.414,
+      C_MAX: 1.414, 
       D_MIN: 0.786,
       D_MAX: 0.786,
     },
@@ -78,15 +79,6 @@ export const HARMONIC_PATTERN = {
       D_MAX: 1.130,
       C_AB_MIN: 1.618,
       C_AB_MAX: 2.236,
-    },
-    // Three Drives pattern
-    THREE_DRIVES: {
-      DRIVE1_MIN: 1.272,
-      DRIVE1_MAX: 1.272,
-      DRIVE2_MIN: 0.618,
-      DRIVE2_MAX: 0.786,
-      DRIVE3_MIN: 1.272,
-      DRIVE3_MAX: 1.618,
     }
   };
   

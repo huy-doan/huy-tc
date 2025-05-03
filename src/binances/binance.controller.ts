@@ -19,15 +19,4 @@ export class BinanceController {
   ): Promise<AnalyzeResult[]> {
     return this.binanceService.harmonicCypherPattern(interval, limit);
   }
-
-  /**
-   * Endpoint để tìm tất cả các mô hình Harmonic trên tất cả các cặp tiền
-   */
-  @Get('/patterns')
-  async findAllPatterns(
-    @Query('interval') interval: CandleChartInterval_LT,
-    @Query('limit') limit: number
-  ): Promise<HarmonicResult[]> {
-    return this.binanceService.findAllHarmonicPatterns(interval, limit);
-  }
 }
