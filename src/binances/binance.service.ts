@@ -68,6 +68,9 @@ export class BinanceService {
                     interval,
                     limit,
                 })
+                if (futuresCandles.length == 0) {
+                    continue;
+                }
                 const chartResult: ChartResult[] = await this.calculatorCypherPattern(futuresCandles);
                 console.log(chartResult.length );
                 if (chartResult.length > 0) {
@@ -109,7 +112,7 @@ export class BinanceService {
 
             return pointers;
         } catch (error) {
-            throw error;
+            return [] as CustomCandle[];
         }
     }
 
@@ -137,10 +140,6 @@ export class BinanceService {
     bullishCypher(response: ChartResult[], futuresCandles: CustomCandle[], swingLows: CustomCandle[], swingHighs: CustomCandle[], harmonicType: string)
     {
         for (const [lowestIndex, lowest] of Object.entries(swingLows)) {
-            // if (candleStick.whoAmI(lowest) == Constants.CANDLE_TYPE.DRAGONFLY_DOJI) {
-            //     console.log(22, symbol, lowest);
-            // }
-
             if (Number(lowestIndex) > 0 && swingLows[Number(lowestIndex) - 1].lowNum < swingLows[Number(lowestIndex)].lowNum) {
                 continue;
             }
@@ -154,8 +153,6 @@ export class BinanceService {
                 const highestPrice = highest.highNum;
 
                 if (lowest.highNum > highest.highNum || (highest.index -lowest.index) < 10) continue;
-
-                // check co diem nao nam giua XA lon hon A va be hon X khong
 
                 const isExistAHighest = futuresCandles.find(
                     item => item.openTime > lowest.openTime && item.openTime < highest.openTime && (item.highNum > highest.highNum || item.lowNum < lowest.lowNum)
@@ -197,27 +194,9 @@ export class BinanceService {
                     continue;
                 }
 
-                // const minPriceB = Math.max(...listB.map(b => b.price));
-                // const minIndexB = Math.min(...listB.map(b => b.index));
-
                 // tim C
                 const cMin = downFibonacciRetracement(lowestPrice, highestPrice, CONSTANT.LEVEL[harmonicType].C_MIN);
                 const cMax = downFibonacciRetracement(lowestPrice, highestPrice, CONSTANT.LEVEL[harmonicType].C_MAX);
-
-                // // tim D
-                // const dMin = upFibonacciRetracement(lowestPrice, cMin, CONSTANT.LEVEL[harmonicType].D_MIN);
-                // const dMax = upFibonacciRetracement(lowestPrice, cMax, CONSTANT.LEVEL[harmonicType].D_MIN);
-
-                // // tim DBC
-                // let dBCMin = null;
-                // if (CONSTANT.LEVEL[harmonicType].D_BC_MIN !== undefined) {
-                //     dBCMin = upFibonacciRetracement(lowestPrice, cMin, CONSTANT.LEVEL[harmonicType].D_BC_MIN);
-
-                // }
-                // let dBCMax = null;
-                // if (CONSTANT.LEVEL[harmonicType].D_BC_MAX !== undefined) {
-                //     dBCMax = upFibonacciRetracement(lowestPrice, cMax, CONSTANT.LEVEL[harmonicType].D_BC_MAX);
-                // }
 
                 //kiem tra trong mang co ton tai diem C hop le khong 
                 const listC = newHighs.filter(function (highC) {
@@ -256,10 +235,8 @@ export class BinanceService {
                         if (listD.length > 0) {
                             console.log("Data Found");
                             response.push({
-                                xPrice: lowest.low,
-                                xTime: lowest.openTimeString,
-                                aPrice: highest.high,
-                                aTime: highest.openTimeString,
+                                xPrice: lowest,
+                                aPrice: highest,
                                 bPrice: pointB,
                                 cPrice: pointC,
                                 dPrices: listD,
@@ -374,10 +351,8 @@ export class BinanceService {
                             console.log(pointC.lowNum, dMin, dMax);
                             console.log("Bearish Cypher Data Found");
                             response.push({
-                                xPrice: highest.high,
-                                xTime: highest.openTimeString,
-                                aPrice: lowest.low,
-                                aTime: lowest.openTimeString,
+                                xPrice: highest,
+                                aPrice: lowest,
                                 bPrice: pointB,
                                 cPrice: pointC,
                                 dPrices: listD,
@@ -453,8 +428,6 @@ export class BinanceService {
                 const cMin = downFibonacciRetracement(lowestPrice, highestPrice, CONSTANT.LEVEL[harmonicType].C_MIN);
                 const cMax = downFibonacciRetracement(lowestPrice, highestPrice, CONSTANT.LEVEL[harmonicType].C_MAX);
 
-
-
                 //kiem tra trong mang co ton tai diem C hop le khong 
                 const listC = newHighs.filter(function (highC) {
                     return highC.highNum >= cMin && highC.highNum <= cMax;
@@ -480,8 +453,6 @@ export class BinanceService {
                         const dBCMax = upFibonacciRetracement(pointB.lowNum, pointC.highNum, CONSTANT.LEVEL[harmonicType].D_BC_MIN);
                         const dBCMin = upFibonacciRetracement(pointB.lowNum, pointC.highNum, CONSTANT.LEVEL[harmonicType].D_BC_MAX);
 
-                        // console.log(11, bMin, bMax, 22 , lowest.low, highest.high, pointB.lowNum, pointC.highNum, dMin, dMax, dBCMin, dBCMax);
-
                         const listD = swingLows.filter(function (lowD) {
                             const price = lowD.lowNum;
                             const condition = (price >= dMin && price <= dMax) && (price >= dBCMin && price <= dBCMax) && lowD.openTime > pointC.openTime;
@@ -498,10 +469,8 @@ export class BinanceService {
                         if (listD.length > 0) {
                             console.log("Data Found Bullish Bat");
                             response.push({
-                                xPrice: lowest.low,
-                                xTime: lowest.openTimeString,
-                                aPrice: highest.high,
-                                aTime: highest.openTimeString,
+                                xPrice: lowest,
+                                aPrice: highest,
                                 bPrice: pointB,
                                 cPrice: pointC,
                                 dPrices: listD,
@@ -619,10 +588,8 @@ export class BinanceService {
                             console.log(pointC.lowNum, dMin, dMax);
                             console.log("Data Found Bearish Bat");
                             response.push({
-                                xPrice: highest.high,
-                                xTime: highest.openTimeString,
-                                aPrice: lowest.low,
-                                aTime: lowest.openTimeString,
+                                xPrice: highest,
+                                aPrice: lowest,
                                 bPrice: pointB,
                                 cPrice: pointC,
                                 dPrices: listD,

@@ -20,10 +20,8 @@ export interface Symbol {
 }
 
 export interface ChartResult {
-    xPrice: string;
-    xTime: string;
-    aPrice: string;
-    aTime: string;
+    xPrice: CustomCandle;
+    aPrice: CustomCandle;
     bPrice: CustomCandle;
     cPrice: CustomCandle;
     dPrices?: CustomCandle[];
