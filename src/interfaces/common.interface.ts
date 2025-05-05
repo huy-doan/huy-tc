@@ -1,3 +1,4 @@
+// src/interfaces/common.interface.ts
 import { CandleChartInterval_LT, CandleChartResult } from "binance-api-node";
 
 export interface SwingResult {
@@ -14,7 +15,6 @@ export interface CustomCandle extends CandleChartResult {
     openTimeString: string;
 }
 
-
 export interface Symbol {
     symbol: string;
 }
@@ -25,7 +25,9 @@ export interface ChartResult {
     bPrice: CustomCandle;
     cPrice: CustomCandle;
     dPrices?: CustomCandle[];
+    patternName?: string; // Thêm trường patternName
 }
+
 export interface AnalyzeResult {
     symbol: string;
     interval: CandleChartInterval_LT;
