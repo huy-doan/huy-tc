@@ -57,8 +57,7 @@ export abstract class HarmonicPatternBase {
         (isBullish ? a.highNum > priceX : a.lowNum < priceX) && a.openTime > timeX);
       if (candidatesA.length === 0) continue;
 
-        this.logDebug('Valid pointX candidates', pointX.index);
-        this.logDebug('Valid A candidates', candidatesA.map(a => a.index));
+     
 
       for (const pointA of candidatesA) {
         if (!this.isValidXA(pointX, pointA, candles, isBullish, swingsX)) continue;
@@ -73,14 +72,20 @@ export abstract class HarmonicPatternBase {
           : [downFibonacciRetracement(priceX, priceA, patternLevels.B_MIN), downFibonacciRetracement(priceX, priceA, patternLevels.B_MAX)];
         const bMin = Math.min(b1, b2);
         const bMax = Math.max(b1, b2);
-
+        if (pointA.openTimeString == "2025-04-27 03:30:00") {
+            this.logDebug('Valid A candidates', candidatesA.map(a => a.index));
+            this.logDebug('pointX.index', pointX.index);
+            this.logDebug('pointX.openTimeString', pointX.openTimeString);
             this.logDebug('pointA.index', pointA.index);
-            this.logDebug('bMin', bMin);
-            this.logDebug('bMax', bMax);
-            console.log('priceA', priceA);
-            console.log('priceX', priceX);
+            this.logDebug('pointA.openTimeString', pointA.openTimeString);
+        }
+
+        // const candidatesB = swingsB.filter(b =>
+        //     this.isPointInRange(b, isBullish, bMin, bMax, pointA.openTime, isBullish ? b.highNum <= priceA : b.lowNum >= priceA)
+        // );
+
         const candidatesB = swingsB.filter(b =>
-          this.isPointInRange(b, bMin, bMax, pointA.openTime, isBullish ? b.highNum <= priceA : b.lowNum >= priceA) &&
+          this.isPointInRange(b, isBullish, bMin, bMax, pointA.openTime, isBullish ? b.highNum <= priceA : b.lowNum >= priceA) &&
           this.noBreaksBetween(candles, pointA.index, b.index, pointA, b, isBullish)
         );
         if (candidatesB.length === 0) continue;
@@ -90,29 +95,34 @@ export abstract class HarmonicPatternBase {
         for (const pointB of candidatesB) {
             this.logDebug('Valid pointB candidates', pointB.index);
 
-          const [c1, c2] = this.getCRange(pointA, pointB, isBullish, patternLevels);
+          const pointC2 = this.name == "CYPHER" ? pointX : pointB;
+
+          const [c1, c2] = this.getCRange(pointA, pointC2, isBullish, patternLevels);
+
           const cMin = Math.min(c1, c2);
           const cMax = Math.max(c1, c2);
         
             console.log('C range', cMin, cMax);
 
           const candidatesC = swingsC.filter(c =>
-            c.openTime > pointB.openTime &&
-            c.highNum >= cMin && c.highNum <= cMax
+            c.openTime > pointC2.openTime && 
+            (isBullish ? c.highNum >= cMin && c.highNum <= cMax : c.lowNum >= cMin && c.lowNum <= cMax)
           );
           if (candidatesC.length === 0) continue;
           this.logDebug('Valid C candidates', candidatesC.map(b => b.index));
 
           for (const pointC of candidatesC) {
-            if (!this.noBreaksBetween(candles, pointB.index, pointC.index, pointB, pointC, isBullish)) continue;
+            // if (!this.noBreaksBetween(candles, pointB.index, pointC.index, pointB, pointC, isBullish)) continue;
 
             const [d1, d2] = this.getDRange(pointX, pointA, pointB, pointC, isBullish, patternLevels);
             const dMin = Math.min(d1, d2);
             const dMax = Math.max(d1, d2);
+            console.log('D range', dMin, dMax);
 
             const [dBC1, dBC2] = this.getOptionalDRangeBC(pointB, pointC, isBullish, patternLevels);
             const dBCMin = dBC1 !== null ? Math.min(dBC1, dBC2) : null;
             const dBCMax = dBC1 !== null ? Math.max(dBC1, dBC2) : null;
+            console.log('D_BC range', dBCMin, dBCMax);
 
             const candidatesD = swingsD.filter(d => {
               const price = isBullish ? d.lowNum : d.highNum;
@@ -171,8 +181,8 @@ export abstract class HarmonicPatternBase {
     return !invalidExtreme;
   }
 
-  private isPointInRange(point: any, min: number, max: number, afterTime: number, extraCondition: boolean): boolean {
-    const price = point.lowNum ?? point.highNum;
+  private isPointInRange(point: any, isBullish: boolean, min: number, max: number, afterTime: number, extraCondition: boolean): boolean {
+    const price = isBullish ? point.lowNum : point.highNum;
     return price >= min && price <= max && point.openTime >= afterTime && extraCondition;
   }
 
@@ -185,17 +195,17 @@ export abstract class HarmonicPatternBase {
   }
 
   private getCRange(a: any, b: any, isBullish: boolean, levels: any): [number, number] {
-    if (['CYPHER', 'SHARK'].includes(this.name)) {
-      const diff = a.highNum - b.lowNum;
-      return [
-        a.highNum + diff * levels.C_MIN,
-        a.highNum + diff * levels.C_MAX,
-      ];
-    } else {
+    // if (['CYPHER', 'SHARK'].includes(this.name)) {
+    //   const diff = a.highNum - b.lowNum;
+    //   return [
+    //     a.highNum + diff * levels.C_MIN,
+    //     a.highNum + diff * levels.C_MAX,
+    //   ];
+    // } else {
       return isBullish
         ? [downFibonacciRetracement(b.lowNum, a.highNum, levels.C_MIN), downFibonacciRetracement(b.lowNum, a.highNum, levels.C_MAX)]
         : [upFibonacciRetracement(a.lowNum, b.highNum, levels.C_MIN), upFibonacciRetracement(a.lowNum, b.highNum, levels.C_MAX)];
-    }
+    // }
   }
 
   private getDRange(x: any, a: any, b: any, c: any, isBullish: boolean, levels: any): [number, number] {
