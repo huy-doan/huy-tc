@@ -13,7 +13,6 @@ export const config: DataSourceOptions = {
     factories: [`${env.ROOT_PATH}/**/databases/factories/*.factory.${isTest ? 'ts' : 'js'}`],
     synchronize: false,
     migrations: [
-        `${env.ROOT_PATH}/dist/migrations/*.js`,
         `${env.ROOT_PATH}/**/databases/migrations/*.${isTest ? 'ts' : 'js'}`
     ],
     migrationsRun: true,

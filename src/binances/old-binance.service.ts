@@ -46,7 +46,6 @@ export class OldBinanceService {
         try {
             const futuresExchangeInfo = await this.binance.futuresExchangeInfo();
             const { symbols } = futuresExchangeInfo;
-            console.log(symbols.length);
             return symbols.map(item => ({ symbol: item.symbol }));
         } catch (error) {
             throw error;
@@ -61,11 +60,6 @@ export class OldBinanceService {
             const symbols = await this.getSymbols();
             for (const symbolItem of symbols) {
                 const { symbol } = symbolItem;
-
-                // if (symbol !== 'EOSUSDT') {
-                //     continue;
-                // }
-
                 const futuresCandles: CustomCandle[] = await this.getFuturesCandles({
                     symbol: symbol,
                     interval,
@@ -76,7 +70,6 @@ export class OldBinanceService {
                 }
 
                 const chartResult: ChartResult[] = await this.calculatorCypherPattern(futuresCandles);
-                console.log(chartResult.length );
                 if (chartResult.length > 0) {
                     const analyzeResult: AnalyzeResult = {
                         symbol,
@@ -123,56 +116,40 @@ export class OldBinanceService {
 
     async calculatorCypherPattern(futuresCandles: CustomCandle[]): Promise<ChartResult[]>
     {
-        // const candleStick = new Candlestick();
-        let response: ChartResult[] = [];
         const { swingLows, swingHighs } = this.findSwingLowsAndHighs(futuresCandles);
-        // console.log(`Swing points :`, swingLows, swingHighs);
 
-                        
-        // Tìm các swing points
-        // const { swingLows, swingHighs } = SwingDetector.findSwingLowsAndHighs(futuresCandles);
-        // console.log(`Swing points for ${symbol}:`, swingResult);
-        // Lọc các swing points có ý nghĩa
-        // const { swingLows, swingHighs } = SwingDetector.filterSignificantSwings(swingResult, futuresCandles);
-        // let chartResults: ChartResult[] = [];
+        // Tạo cấu trúc dữ liệu cho các patterns
+        const analysisConfig = [
+            { type: 'CYPHER', methods: ['bullishCypher', 'bearishCypher'] },
+            { type: 'BAT', methods: ['bullishBat', 'bearishBat'] },
+            { type: 'GARTLEY', methods: ['bullishGartley', 'bearishGartley'] },
+            { type: 'BUTTERFLY', methods: ['bullishButterfly', 'bearishButterfly'] },
+            { type: 'CRAB', methods: ['bullishCrab', 'bearishCrab'] },
+            { type: 'SHARK', methods: ['bullishShark', 'bearishShark'] }
+        ];
 
-        /** Bullish cypher */
-        response = this.bullishCypher(response, futuresCandles, swingLows, swingHighs, 'CYPHER');
+        // Tạo promises
+        const analysisPromises = analysisConfig.flatMap(config => 
+            config.methods.map(methodName => 
+                new Promise<ChartResult[]>(resolve => {
+                    const initialResult: ChartResult[] = [];
+                    const result = this[methodName](
+                        initialResult, 
+                        futuresCandles, 
+                        swingLows, 
+                        swingHighs, 
+                        config.type
+                    );
+                    resolve(result);
+                })
+            )
+        );
+
+        // Chạy tất cả phân tích song song và nhận kết quả
+        const results = await Promise.all(analysisPromises);
         
-        /** Bearish cypher */
-        response = this.bearishCypher(response, futuresCandles, swingLows, swingHighs, 'CYPHER');
-
-        /** Bullish BAT */
-        response = this.bullishBat(response, futuresCandles, swingLows, swingHighs, 'BAT');
-
-        /** Bearish BAT */
-        response = this.bearishBat(response, futuresCandles, swingLows, swingHighs, 'BAT');
-
-        /** Bullish Gartley */
-        response = this.bullishGartley(response, futuresCandles, swingLows, swingHighs, 'GARTLEY');
-
-        /** Bearish Gartley */
-        response = this.bearishGartley(response, futuresCandles, swingLows, swingHighs, 'GARTLEY');
-
-        /** Bullish Butterfly */
-        response = this.bullishButterfly(response, futuresCandles, swingLows, swingHighs, 'BUTTERFLY');
-
-        /** Bearish Butterfly */
-        response = this.bearishButterfly(response, futuresCandles, swingLows, swingHighs, 'BUTTERFLY');
-
-        /** Bullish Crab */
-        response = this.bullishCrab(response, futuresCandles, swingLows, swingHighs, 'CRAB');
-
-        /** Bearish Crab */
-        response = this.bearishCrab(response, futuresCandles, swingLows, swingHighs, 'CRAB');
-
-        /** Bullish Shark */
-        response = this.bullishShark(response, futuresCandles, swingLows, swingHighs, 'SHARK');
-
-        /** Bearish Shark */
-        response = this.bearishShark(response, futuresCandles, swingLows, swingHighs, 'SHARK');
-
-        return response;
+        // Flatten kết quả
+        return results.flat();
     }
 
     bullishCypher(response: ChartResult[], futuresCandles: CustomCandle[], swingLows: CustomCandle[], swingHighs: CustomCandle[], harmonicType: string)
